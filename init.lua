@@ -73,6 +73,10 @@ minetest.register_node("bones:bones", {
 })
 
 minetest.register_on_dieplayer(function(player)
+	if minetest.setting_getbool("creative_mode") then
+		return
+	end
+	
 	local pos = player:getpos()
 	pos.x = math.floor(pos.x+0.5)
 	pos.y = math.floor(pos.y+0.5)
