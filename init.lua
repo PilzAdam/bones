@@ -64,6 +64,9 @@ minetest.register_node("bones:bones", {
 		if tonumber(minetest.setting_get("share_bones_time")) then
 			publish = tonumber(minetest.setting_get("share_bones_time"))
 		end
+		if publish == 0 then
+			return
+		end
 		if time >= publish then
 			meta:set_string("infotext", meta:get_string("owner").."'s old bones")
 			meta:set_string("owner", "")
