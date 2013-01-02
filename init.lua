@@ -99,7 +99,7 @@ minetest.register_on_dieplayer(function(player)
 	player_inv:set_list("main", empty_list)
 	
 	for i=1,player_inv:get_size("craft") do
-		inv:add_item("craft", player_inv:get_stack("main", i))
+		inv:add_item("main", player_inv:get_stack("craft", i))
 		player_inv:set_stack("craft", i, nil)
 	end
 	
