@@ -86,7 +86,17 @@ minetest.register_on_dieplayer(function(player)
 	pos.y = math.floor(pos.y+0.5)
 	pos.z = math.floor(pos.z+0.5)
 	local param2 = minetest.dir_to_facedir(player:get_look_dir())
-	
+
+	local replaced = minetest.env:get_node(pos)
+	if not minetest.registered_items[replaced.name].buildable_to then
+		if minetest.registered_items[replaced.name].can_dig and
+		not minetest.registered_items[replaced.name].can_dig(pos, player) then
+			return -- prevents the removal of undigable nodes
+		else
+			minetest.node_dig(pos, replaced, player) -- prevents partial doors, also causes tool wear
+		end
+	end
+
 	minetest.env:add_node(pos, {name="bones:bones", param2=param2})
 	
 	local meta = minetest.env:get_meta(pos)
@@ -98,14 +108,15 @@ minetest.register_on_dieplayer(function(player)
 	inv:set_list("main", player_inv:get_list("main"))
 	player_inv:set_list("main", empty_list)
 	
+	inv:set_size("main", 11*4)
 	for i=1,player_inv:get_size("craft") do
 		inv:add_item("main", player_inv:get_stack("craft", i))
 		player_inv:set_stack("craft", i, nil)
 	end
-	
-	meta:set_string("formspec", "size[8,9;]"..
-			"list[current_name;main;0,0;8,4;]"..
-			"list[current_player;main;0,5;8,4;]")
+
+	meta:set_string("formspec", "size[11,9;]"..
+			"list[current_name;main;0,0;11,4;]"..
+			"list[current_player;main;1.5,5;8,4;]")
 	meta:set_string("infotext", player:get_player_name().."'s fresh bones")
 	meta:set_string("owner", player:get_player_name())
 	meta:set_int("time", 0)
