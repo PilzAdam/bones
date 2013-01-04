@@ -87,20 +87,15 @@ minetest.register_on_dieplayer(function(player)
 	pos.z = math.floor(pos.z+0.5)
 	local param2 = minetest.dir_to_facedir(player:get_look_dir())
 
-	local meta = minetest.env:get_meta(pos)
-	local inv = meta:get_inventory()
-	if not inv:is_empty("main") -- chests
-		or not inv:is_empty("fuel") -- furnaces
-		or not inv:is_empty("src") -- furnaces
-		or not inv:is_empty("dst") -- furnaces
-		or meta:get_string("owner") ~= "" -- owned objects, such as locked chests and steel doors
-	then
-		return
+	local replaced = minetest.env:get_node(pos)
+	if not minetest.registered_items[replaced.name].buildable_to then
+		if minetest.registered_items[replaced.name].can_dig and
+		not minetest.registered_items[replaced.name].can_dig(pos, player) then
+			return -- prevents the removal of undigable nodes
+		else
+			minetest.node_dig(pos, replaced, player) -- prevents partial doors, also causes tool wear
+		end
 	end
-
-	local replaced = minetest.env:get_node(pos).name
-	local add_to_bones = minetest.get_node_drops(replaced, "") -- prevents lost nodes
-	minetest.env:dig_node(pos) -- prevents partial doors
 
 	minetest.env:add_node(pos, {name="bones:bones", param2=param2})
 	
@@ -119,12 +114,6 @@ minetest.register_on_dieplayer(function(player)
 		player_inv:set_stack("craft", i, nil)
 	end
 
-	if not minetest.registered_items[replaced].buildable_to then
-		for _,item in ipairs(add_to_bones) do
-			inv:add_item("main", item)
-		end
-	end
-	
 	meta:set_string("formspec", "size[11,9;]"..
 			"list[current_name;main;0,0;11,4;]"..
 			"list[current_player;main;1.5,5;8,4;]")
