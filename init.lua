@@ -86,7 +86,22 @@ minetest.register_on_dieplayer(function(player)
 	pos.y = math.floor(pos.y+0.5)
 	pos.z = math.floor(pos.z+0.5)
 	local param2 = minetest.dir_to_facedir(player:get_look_dir())
-	
+
+	local meta = minetest.env:get_meta(pos)
+	local inv = meta:get_inventory()
+	if not inv:is_empty("main") -- chests
+		or not inv:is_empty("fuel") -- furnaces
+		or not inv:is_empty("src") -- furnaces
+		or not inv:is_empty("dst") -- furnaces
+		or meta:get_string("owner") ~= "" -- owned objects, such as locked chests and steel doors
+	then
+		return
+	end
+
+	local replaced = minetest.env:get_node(pos).name
+	local add_to_bones = minetest.get_node_drops(replaced, "") -- prevents lost nodes
+	minetest.env:dig_node(pos) -- prevents partial doors
+
 	minetest.env:add_node(pos, {name="bones:bones", param2=param2})
 	
 	local meta = minetest.env:get_meta(pos)
@@ -98,14 +113,21 @@ minetest.register_on_dieplayer(function(player)
 	inv:set_list("main", player_inv:get_list("main"))
 	player_inv:set_list("main", empty_list)
 	
+	inv:set_size("main", 11*4)
 	for i=1,player_inv:get_size("craft") do
 		inv:add_item("main", player_inv:get_stack("craft", i))
 		player_inv:set_stack("craft", i, nil)
 	end
+
+	if not minetest.registered_items[replaced].buildable_to then
+		for _,item in ipairs(add_to_bones) do
+			inv:add_item("main", item)
+		end
+	end
 	
-	meta:set_string("formspec", "size[8,9;]"..
-			"list[current_name;main;0,0;8,4;]"..
-			"list[current_player;main;0,5;8,4;]")
+	meta:set_string("formspec", "size[11,9;]"..
+			"list[current_name;main;0,0;11,4;]"..
+			"list[current_player;main;1.5,5;8,4;]")
 	meta:set_string("infotext", player:get_player_name().."'s fresh bones")
 	meta:set_string("owner", player:get_player_name())
 	meta:set_int("time", 0)
