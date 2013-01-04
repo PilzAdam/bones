@@ -87,6 +87,17 @@ minetest.register_on_dieplayer(function(player)
 	pos.z = math.floor(pos.z+0.5)
 	local param2 = minetest.dir_to_facedir(player:get_look_dir())
 	
+	local nn = minetest.env:get_node(pos).name
+	if minetest.registered_nodes[nn].can_dig and
+		not minetest.registered_nodes[nn].can_dig(pos, player) then
+		local player_inv = player:get_inventory()
+		player_inv:set_list("main", empty_list)
+		for i=1,player_inv:get_size("craft") do
+			player_inv:set_stack("craft", i, nil)
+		end
+		return
+	end
+	
 	minetest.env:add_node(pos, {name="bones:bones", param2=param2})
 	
 	local meta = minetest.env:get_meta(pos)
