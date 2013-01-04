@@ -98,6 +98,7 @@ minetest.register_on_dieplayer(function(player)
 		return
 	end
 	
+	minetest.env:dig_node(pos)
 	minetest.env:add_node(pos, {name="bones:bones", param2=param2})
 	
 	local meta = minetest.env:get_meta(pos)
