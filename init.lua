@@ -90,10 +90,11 @@ minetest.register_on_dieplayer(function(player)
 	local nn = minetest.env:get_node(pos).name
 	if minetest.registered_nodes[nn].can_dig and
 		not minetest.registered_nodes[nn].can_dig(pos, player) then
-		local empty_list = inv:get_list("main")
-		inv:set_list("main", player_inv:get_list("main"))
-		player_inv:set_list("main", empty_list)
-		
+		local player_inv = player:get_inventory()
+
+		for i=1,player_inv:get_size("main") do
+			player_inv:set_stack("main", i, nil)
+		end
 		for i=1,player_inv:get_size("craft") do
 			player_inv:set_stack("craft", i, nil)
 		end
