@@ -1,8 +1,15 @@
 -- Minetest 0.4 mod: bones
 -- See README.txt for licensing and other information. 
 
+bones={}
+bones.timeout=1200
+if tonumber(minetest.setting_get("share_bones_time")) then
+    bones.timeout = tonumber(minetest.setting_get("share_bones_time"))
+end
+
+
 local function is_owner(pos, name)
-	local owner = minetest.env:get_meta(pos):get_string("owner")
+	local owner = minetest.get_meta(pos):get_string("owner")
 	if owner == "" or owner == name then
 		return true
 	end
@@ -22,11 +29,12 @@ minetest.register_node("bones:bones", {
 	paramtype2 = "facedir",
 	groups = {dig_immediate=2},
 	sounds = default.node_sound_dirt_defaults({
-		footstep = {name="default_gravel_footstep", gain=0.45},
+		footstep = {name="default_gravel_footstep", gain=0.5},
+		dug = {name="default_gravel_footstep", gain=1.0},
 	}),
 	
 	can_dig = function(pos, player)
-		local inv = minetest.env:get_meta(pos):get_inventory()
+		local inv = minetest.get_meta(pos):get_inventory()
 		return is_owner(pos, player:get_player_name()) and inv:is_empty("main")
 	end,
 	
@@ -49,7 +57,7 @@ minetest.register_node("bones:bones", {
 	end,
 	
 	on_metadata_inventory_take = function(pos, listname, index, stack, player)
-		local meta = minetest.env:get_meta(pos)
+		local meta = minetest.get_meta(pos)
 		if meta:get_string("owner") ~= "" and meta:get_inventory():is_empty("main") then
 			meta:set_string("infotext", meta:get_string("owner").."'s old bones")
 			meta:set_string("formspec", "")
@@ -58,19 +66,23 @@ minetest.register_node("bones:bones", {
 	end,
 	
 	on_timer = function(pos, elapsed)
-		local meta = minetest.env:get_meta(pos)
-		local time = meta:get_int("time")+elapsed
-		local publish = 1200
-		if tonumber(minetest.setting_get("share_bones_time")) then
-			publish = tonumber(minetest.setting_get("share_bones_time"))
-		end
-		if publish == 0 then
+		local meta = minetest.get_meta(pos)
+		local time = meta:get_int("bonetime_counter")*10 +elapsed
+		local timeout = bones.timeout
+
+		if timeout == 0 then
 			return
 		end
-		if time >= publish then
+		-- spawn bones expire faster
+		if pos.x>-30 and pos.x<30 and pos.y>-30 and pos.y<60 and pos.z>-30 and pos.z<30 then
+			timeout=timeout/3
+		end
+		
+		if time >= timeout then
 			meta:set_string("infotext", meta:get_string("owner").."'s old bones")
 			meta:set_string("owner", "")
 		else
+            meta:set_int("bonetime_counter", meta:get_int("bonetime_counter") + 1)
 			return true
 		end
 	end,
@@ -82,49 +94,66 @@ minetest.register_on_dieplayer(function(player)
 	end
 	
 	local pos = player:getpos()
+	
+	-- no bones at spawn point
+	if pos.x>-3 and pos.x<3 and pos.y>-3 and pos.y<6 and pos.z>-3 and pos.z<3 then
+		return
+	end
+	
 	pos.x = math.floor(pos.x+0.5)
 	pos.y = math.floor(pos.y+0.5)
 	pos.z = math.floor(pos.z+0.5)
 	local param2 = minetest.dir_to_facedir(player:get_look_dir())
-	
-	local nn = minetest.env:get_node(pos).name
-	if minetest.registered_nodes[nn].can_dig and
-		not minetest.registered_nodes[nn].can_dig(pos, player) then
-		local player_inv = player:get_inventory()
+	local player_name = player:get_player_name()
+	local player_inv = player:get_inventory()
 
-		for i=1,player_inv:get_size("main") do
-			player_inv:set_stack("main", i, nil)
-		end
-		for i=1,player_inv:get_size("craft") do
-			player_inv:set_stack("craft", i, nil)
-		end
+	
+	local nn = minetest.get_node(pos).name
+    local nnn = minetest.get_node({x=pos.x,y=pos.y+1,z=pos.z}).name
+    local nnnn = minetest.get_node({x=pos.x,y=pos.y+2,z=pos.z}).name
+    local spaceforbones=nil
+	-- if minetest.registered_nodes[nn].can_dig and
+	-- 	not minetest.registered_nodes[nn].can_dig(pos, player) then
+	if nn=="air" or nn=="default:water_flowing" or nn=="default:water_source" or nn=="default:lava_source" or nn=="default:lava_flowing" then
+        spaceforbones=pos
+    elseif nnn=="air" or nnn=="default:water_flowing" or nnn=="default:water_source" or nnn=="default:lava_source" or nnn=="default:lava_flowing" then
+        spaceforbones={x=pos.x,y=pos.y+1,z=pos.z}
+    elseif nnnn=="air" or nnnn=="default:water_flowing" or nnnn=="default:water_source" or nnnn=="default:lava_source" or nnnn=="default:lava_flowing" then
+        spaceforbones={x=pos.x,y=pos.y+2,z=pos.z}
+    else
+		-- empty lists main and craft
+		player_inv:set_list("main", {})
+		player_inv:set_list("craft", {})
 		return
 	end
 	
-	minetest.env:dig_node(pos)
-	minetest.env:add_node(pos, {name="bones:bones", param2=param2})
+	minetest.dig_node(spaceforbones)
+	minetest.add_node(spaceforbones, {name="bones:bones", param2=param2})
 	
-	local meta = minetest.env:get_meta(pos)
+	local meta = minetest.get_meta(spaceforbones)
 	local inv = meta:get_inventory()
-	local player_inv = player:get_inventory()
 	inv:set_size("main", 8*4)
 	
-	local empty_list = inv:get_list("main")
 	inv:set_list("main", player_inv:get_list("main"))
-	player_inv:set_list("main", empty_list)
 	
 	for i=1,player_inv:get_size("craft") do
-		inv:add_item("main", player_inv:get_stack("craft", i))
-		player_inv:set_stack("craft", i, nil)
+        local stack = player_inv:get_stack("craft", i)
+        if inv:room_for_item("main", stack) then
+            inv:add_item("main", stack)
+        end
 	end
+
+	player_inv:set_list("main", {})
+	player_inv:set_list("craft", {})
+
 	
 	meta:set_string("formspec", "size[8,9;]"..
 			"list[current_name;main;0,0;8,4;]"..
 			"list[current_player;main;0,5;8,4;]")
-	meta:set_string("infotext", player:get_player_name().."'s fresh bones")
-	meta:set_string("owner", player:get_player_name())
-	meta:set_int("time", 0)
+	meta:set_string("infotext", player_name.."'s fresh bones")
+	meta:set_string("owner", player_name)
+    meta:set_int("bonetime_counter", 0)
 	
-	local timer  = minetest.env:get_node_timer(pos)
+	local timer  = minetest.get_node_timer(spaceforbones)
 	timer:start(10)
 end)
